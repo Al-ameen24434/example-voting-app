@@ -1,6 +1,7 @@
-# base defines a base stage that uses the official python runtime base image
-FROM python:3.11-slim AS base
+FROM python:3.12.7-slim AS base 
 
+ 
+RUN useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin appuser
 # Add curl for healthcheck
 RUN apt-get update && \
     apt-get install -y --no-install-recommends curl && \
