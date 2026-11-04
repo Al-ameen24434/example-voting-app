@@ -1,0 +1,10 @@
+apiVersion: v2
+name: voting
+description: One Helm chart for dockersamples/example-voting-app (vote, result, worker, redis, db) on AWS EKS
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - voting
+  - example-voting-app
+  - eks

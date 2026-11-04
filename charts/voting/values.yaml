@@ -1,0 +1,84 @@
+# ---------------------------------------------------------------------------
+# Single values file for the "voting" chart.
+# Everything you normally change lives here. CI overrides single keys with
+# --set (for example: --set image.tag=<git-sha> --set db.password=...).
+# ---------------------------------------------------------------------------
+
+# Images of the three application containers.
+# They are pushed to GHCR as: ghcr.io/<USERNAME>/<vote|result|worker>:<tag>
+image:
+  registry: ghcr.io
+  # TODO: replace with your lowercase GitHub username before installing.
+  username: <YOUR_GITHUB_USERNAME>
+  # CI overwrites this with the commit SHA: --set image.tag=<sha>
+  tag: latest
+
+# PostgreSQL password.
+# NEVER put a real password in this file - keep it empty and pass it at
+# deploy time with --set db.password=... Helm's `required` function aborts
+# the install/upgrade while this value is still empty.
+db:
+  password: ""
+  # Pinned version on purpose (never :latest).
+  image: postgres:15-alpine
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+redis:
+  # Pinned version on purpose (never :latest).
+  image: redis:7.4-alpine
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 128Mi
+
+# The three application containers.
+#   - name        -> also the image name (ghcr.io/<user>/<name>:<tag>)
+#   - port        -> container port; when present the chart also creates a
+#                    public LoadBalancer Service and HTTP probes on that port.
+#                    worker has no port, no Service and no probes (background job).
+#   - runAsUser   -> uid (and gid) used inside the container, so the pod is
+#                    guaranteed to run as a non-root user.
+apps:
+  - name: vote
+    replicas: 1
+    runAsUser: 10001
+    port: 8080
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+
+  - name: result
+    replicas: 1
+    runAsUser: 1000
+    port: 8080
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+
+  - name: worker
+    replicas: 1
+    runAsUser: 10001
+    resources:
+      requests:
+        cpu: 50m
+        memory: 96Mi
+      limits:
+        cpu: 250m
+        memory: 192Mi

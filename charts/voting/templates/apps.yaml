@@ -1,0 +1,102 @@
+{{- /*
+  apps.yaml - the three application workloads.
+
+  We loop once over the .Values.apps list from values.yaml and render a
+  Deployment for every entry. An entry that has a "port" (vote, result) also
+  gets a public LoadBalancer Service plus HTTP probes; worker has no port, so
+  it only gets a Deployment.
+*/ -}}
+{{- range .Values.apps }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app: {{ .name }}
+spec:
+  replicas: {{ .replicas }}
+  selector:
+    matchLabels:
+      app: {{ .name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .name }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ .runAsUser }}
+        runAsGroup: {{ .runAsUser }}
+      containers:
+        - name: {{ .name }}
+          image: "{{ $.Values.image.registry }}/{{ $.Values.image.username }}/{{ .name }}:{{ $.Values.image.tag }}"
+          {{- if eq .name "vote" }}
+          {{- /* The stock vote image binds gunicorn to port 80. The spec (and
+                 the probes below) require container port 8080, and a non-root
+                 process may not bind a port below 1024, so we re-bind it. */}}
+          args:
+            - gunicorn
+            - app:app
+            - -b
+            - 0.0.0.0:8080
+            - --log-file
+            - "-"
+            - --access-logfile
+            - "-"
+            - --workers
+            - "4"
+            - --keep-alive
+            - "0"
+          {{- end }}
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          {{- with .port }}
+          ports:
+            - name: http
+              containerPort: {{ . }}
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /
+              port: {{ . }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: {{ . }}
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          {{- end }}
+          resources:
+            {{- toYaml .resources | nindent 12 }}
+{{- if .port }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app: {{ .name }}
+spec:
+  type: LoadBalancer
+  selector:
+    app: {{ .name }}
+  ports:
+    - name: http
+      port: {{ .port }}
+      targetPort: {{ .port }}
+      protocol: TCP
+{{- end }}
+{{- end }}
